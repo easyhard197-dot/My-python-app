@@ -834,7 +834,7 @@
     result.innerHTML = '';
 
     try {
-      const apiURL = `https://instadl.rydenxgod.workers.dev/?url=${encodeURIComponent(url)}`;
+      const apiURL = `/api/index?url=${encodeURIComponent(url)}`;
       const res = await fetch(apiURL);
       const data = await res.json();
 
