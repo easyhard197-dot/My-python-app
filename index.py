@@ -1,0 +1,139 @@
+"""
+InstaFetcher X — backend API
+-----------------------------
+Takes an Instagram reel/post URL and returns a direct video + thumbnail URL.
+Built to be deployed as a Vercel Python serverless function.
+
+Response shape matches what the existing index.html frontend expects:
+  { "status": "success", "video": "...", "thumbnail": "..." }
+  { "status": "error", "message": "..." }
+"""
+
+from flask import Flask, request, jsonify
+import yt_dlp
+import os
+import requests
+from datetime import datetime
+
+app = Flask(__name__)
+
+# Set these in Vercel → Project → Settings → Environment Variables
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
+
+
+def notify_usage(ig_url: str, status: str):
+    """Send a Telegram message to the owner every time someone uses the tool."""
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        return  # tracking not configured, skip silently
+
+    ip = request.headers.get("x-forwarded-for", request.remote_addr or "unknown").split(",")[0]
+    time_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+
+    text = (
+        f"📥 *InstaFetcher X — new request*\n"
+        f"Status: {status}\n"
+        f"IP: `{ip}`\n"
+        f"Time: {time_str}\n"
+        f"Link: {ig_url}"
+    )
+
+    try:
+        requests.post(
+            f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+            json={"chat_id": TELEGRAM_CHAT_ID, "text": text, "parse_mode": "Markdown"},
+            timeout=3,
+        )
+    except Exception:
+        pass  # never let tracking break the actual download
+
+
+@app.after_request
+def add_cors_headers(response):
+    # Allow the frontend (hosted anywhere) to call this API from the browser
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    return response
+
+
+def extract_instagram_media(url: str):
+    """Use yt-dlp to pull the direct video + thumbnail URL from an Instagram link."""
+    ydl_opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "skip_download": True,
+        "format": "best",
+        "noplaylist": True,
+        # Pretend to be a normal browser — helps avoid some basic blocks
+        "http_headers": {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36"
+            )
+        },
+    }
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+
+    # If it's a carousel/playlist, yt-dlp returns "entries" — grab the first video
+    if info.get("entries"):
+        info = info["entries"][0]
+
+    video_url = info.get("url")
+
+    # Fallback: pick the highest-resolution format manually
+    if not video_url and info.get("formats"):
+        playable = [f for f in info["formats"] if f.get("url")]
+        if playable:
+            best = max(playable, key=lambda f: f.get("height") or 0)
+            video_url = best.get("url")
+
+    thumbnail = info.get("thumbnail")
+
+    return video_url, thumbnail
+
+
+@app.route("/", methods=["GET", "OPTIONS"])
+@app.route("/api/index", methods=["GET", "OPTIONS"])
+def fetch():
+    if request.method == "OPTIONS":
+        # CORS preflight
+        return "", 204
+
+    url = (request.args.get("url") or "").strip()
+
+    if not url:
+        return jsonify({"status": "error", "message": "No URL provided."}), 400
+
+    if "instagram.com" not in url:
+        return jsonify({"status": "error", "message": "That doesn't look like an Instagram URL."}), 400
+
+    try:
+        video_url, thumbnail = extract_instagram_media(url)
+    except Exception as e:
+        notify_usage(url, "❌ failed (fetch error)")
+        # Most failures here = private post, deleted post, or Instagram blocking the request
+        return jsonify({
+            "status": "error",
+            "message": "Could not fetch this post. It may be private, deleted, or Instagram is rate-limiting requests."
+        }), 502
+
+    if not video_url:
+        notify_usage(url, "⚠️ no video found")
+        return jsonify({
+            "status": "error",
+            "message": "This looks like a photo post or unsupported content — no video found."
+        }), 404
+
+    notify_usage(url, "✅ success")
+    return jsonify({
+        "status": "success",
+        "video": video_url,
+        "thumbnail": thumbnail,
+    })
+
+
+# Vercel's Python runtime auto-detects the "app" object as the WSGI handler.
