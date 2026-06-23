@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>InstaFetcher X – Instagram Downloader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --ig1: #f09433;
+    --ig2: #e6683c;
+    --ig3: #dc2743;
+    --ig4: #cc2366;
+    --ig5: #bc1888;
+    --accent: #ff5e8e;
+    --accent2: #f7971e;
+    --dark: #0a0a0f;
+    --dark2: #12121a;
+    --dark3: #1a1a28;
+    --glass: rgba(255,255,255,0.04);
+    --glass2: rgba(255,255,255,0.08);
+    --border: rgba(255,255,255,0.08);
+    --text: #f0f0f8;
+    --muted: #888aa0;
+    --tg: #229ed9;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--dark);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Animated BG ── */
+  .bg-layer {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    overflow: hidden;
+  }
+  .bg-layer::before {
+    content: '';
+    position: absolute;
+    width: 900px; height: 900px;
+    top: -300px; left: -200px;
+    background: radial-gradient(circle, rgba(188,24,136,.18) 0%, transparent 70%);
+    animation: drift1 18s ease-in-out infinite alternate;
+  }
+  .bg-layer::after {
+    content: '';
+    position: absolute;
+    width: 700px; height: 700px;
+    bottom: -200px; right: -150px;
+    background: radial-gradient(circle, rgba(240,148,51,.14) 0%, transparent 70%);
+    animation: drift2 22s ease-in-out infinite alternate;
+  }
+  .bg-orb {
+    position: absolute;
+    width: 500px; height: 500px;
+    top: 40%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgba(220,39,67,.1) 0%, transparent 70%);
+    animation: drift3 14s ease-in-out infinite alternate;
+  }
+  @keyframes drift1 { from { transform: translate(0,0) scale(1); } to { transform: translate(80px,60px) scale(1.1); } }
+  @keyframes drift2 { from { transform: translate(0,0) scale(1); } to { transform: translate(-70px,-50px) scale(1.15); } }
+  @keyframes drift3 { from { transform: translate(-50%,-50%) scale(1); } to { transform: translate(-48%,-52%) scale(1.2); } }
+
+  /* Grid overlay */
+  .bg-grid {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+
+  /* ── Popup ── */
+  #popup-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    background: rgba(0,0,0,.75);
+    backdrop-filter: blur(12px);
+    display: flex; align-items: center; justify-content: center;
+    animation: fadeIn .4s ease;
+  }
+  .popup-box {
+    background: linear-gradient(135deg, #1a1a28 0%, #12121a 100%);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 24px;
+    padding: 44px 36px 36px;
+    max-width: 380px; width: 90%;
+    text-align: center;
+    box-shadow: 0 40px 100px rgba(0,0,0,.6), 0 0 0 1px rgba(255,94,142,.15);
+    position: relative;
+    animation: popUp .5s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes popUp { from { transform: scale(.8) translateY(20px); opacity:0; } to { transform: scale(1) translateY(0); opacity:1; } }
+  .popup-box .tg-icon-big {
+    width: 72px; height: 72px;
+    background: linear-gradient(135deg, #0088cc, #229ed9);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 20px;
+    font-size: 34px;
+    box-shadow: 0 8px 30px rgba(34,158,217,.35);
+  }
+  .popup-box h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.5rem; font-weight: 800;
+    margin-bottom: 10px;
+    background: linear-gradient(135deg, #fff 0%, var(--muted) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .popup-box p { color: var(--muted); font-size: .92rem; line-height: 1.6; margin-bottom: 28px; }
+  .popup-btn-row { display: flex; gap: 12px; }
+  .btn-join-popup {
+    flex: 1; padding: 13px 0;
+    background: linear-gradient(135deg, #0088cc, #229ed9);
+    border: none; border-radius: 12px;
+    color: #fff; font-family: 'Syne', sans-serif;
+    font-size: .95rem; font-weight: 700;
+    cursor: pointer; transition: all .2s;
+  }
+  .btn-join-popup:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(34,158,217,.4); }
+  .btn-ignore-popup {
+    flex: 1; padding: 13px 0;
+    background: var(--glass2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--muted); font-family: 'DM Sans', sans-serif;
+    font-size: .92rem; cursor: pointer; transition: all .2s;
+  }
+  .btn-ignore-popup:hover { background: var(--glass); color: var(--text); }
+
+  /* ── NAV ── */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    padding: 18px 5%;
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(10,10,15,.6);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-logo {
+    display: flex; align-items: center; gap: 10px;
+    text-decoration: none;
+  }
+  .logo-icon {
+    width: 38px; height: 38px;
+    background: linear-gradient(135deg, var(--ig1), var(--ig3), var(--ig5));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+  .logo-text {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.15rem; font-weight: 800;
+    background: linear-gradient(90deg, var(--ig1), var(--ig3), var(--ig5));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    letter-spacing: -.02em;
+  }
+  .nav-tag {
+    font-size: .7rem; font-weight: 600;
+    background: linear-gradient(90deg, var(--ig3), var(--ig5));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    letter-spacing: .08em; text-transform: uppercase;
+  }
+  .nav-tg-btn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 18px;
+    background: rgba(34,158,217,.12);
+    border: 1px solid rgba(34,158,217,.25);
+    border-radius: 50px; color: var(--tg);
+    text-decoration: none;
+    font-size: .85rem; font-weight: 600;
+    transition: all .2s;
+  }
+  .nav-tg-btn:hover { background: rgba(34,158,217,.22); transform: translateY(-1px); }
+
+  /* ── HERO ── */
+  .hero {
+    position: relative; z-index: 1;
+    text-align: center;
+    padding: 80px 5% 60px;
+  }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--glass2);
+    border: 1px solid var(--border);
+    border-radius: 50px;
+    padding: 6px 16px; margin-bottom: 30px;
+    font-size: .78rem; font-weight: 600;
+    color: var(--accent); letter-spacing: .06em; text-transform: uppercase;
+  }
+  .hero-badge span { width:6px;height:6px;background:var(--accent);border-radius:50%;display:inline-block;animation:pulse 2s ease infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.4;transform:scale(.8);} }
+
+  .hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2.6rem, 7vw, 5rem);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -.04em;
+    margin-bottom: 20px;
+  }
+  .grad-text {
+    background: linear-gradient(135deg, var(--ig1) 0%, var(--ig3) 40%, var(--ig5) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .hero p {
+    color: var(--muted); font-size: 1.05rem;
+    max-width: 520px; margin: 0 auto 50px;
+    line-height: 1.7;
+  }
+
+  /* ── DOWNLOADER CARD ── */
+  .card {
+    position: relative; z-index: 1;
+    background: linear-gradient(145deg, rgba(255,255,255,.05) 0%, rgba(255,255,255,.02) 100%);
+    border: 1px solid var(--border);
+    border-radius: 28px;
+    padding: 40px;
+    max-width: 700px;
+    margin: 0 auto;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 30px 80px rgba(0,0,0,.4);
+  }
+  .card::before {
+    content: '';
+    position: absolute; inset: -1px;
+    border-radius: 29px;
+    background: linear-gradient(135deg, rgba(240,148,51,.2), rgba(188,24,136,.2), rgba(240,148,51,.05));
+    z-index: -1;
+    opacity: 0;
+    transition: opacity .4s;
+  }
+  .card:focus-within::before { opacity: 1; }
+
+  .input-row {
+    display: flex; gap: 10px; align-items: center;
+    background: rgba(0,0,0,.3);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 6px 6px 6px 18px;
+    transition: border-color .3s;
+  }
+  .input-row:focus-within {
+    border-color: rgba(240,148,51,.5);
+    box-shadow: 0 0 0 3px rgba(240,148,51,.08);
+  }
+  .input-row .ig-icon { font-size: 20px; flex-shrink: 0; }
+  #urlInput {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: var(--text); font-family: 'DM Sans', sans-serif;
+    font-size: .97rem; padding: 10px 0;
+  }
+  #urlInput::placeholder { color: var(--muted); }
+  .btn-clear {
+    background: rgba(255,255,255,.06); border: 1px solid var(--border);
+    border-radius: 10px; width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: var(--muted); font-size: 16px;
+    transition: all .2s; flex-shrink: 0;
+  }
+  .btn-clear:hover { background: rgba(255,255,255,.12); color: var(--text); }
+
+  .btn-download-main {
+    width: 100%; margin-top: 16px;
+    padding: 17px;
+    background: linear-gradient(135deg, var(--ig1) 0%, var(--ig3) 50%, var(--ig5) 100%);
+    border: none; border-radius: 16px;
+    color: #fff;
+    font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 700;
+    cursor: pointer; letter-spacing: .02em;
+    transition: all .25s;
+    position: relative; overflow: hidden;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+  }
+  .btn-download-main::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, transparent 0%, rgba(255,255,255,.15) 50%, transparent 100%);
+    transform: translateX(-100%);
+    transition: transform .5s ease;
+  }
+  .btn-download-main:hover::after { transform: translateX(100%); }
+  .btn-download-main:hover { transform: translateY(-2px); box-shadow: 0 15px 40px rgba(188,24,136,.4); }
+  .btn-download-main:active { transform: translateY(0); }
+  .btn-download-main:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+  /* spinner */
+  .spinner {
+    width: 20px; height: 20px;
+    border: 2px solid rgba(255,255,255,.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── RESULT ── */
+  #result { margin-top: 28px; animation: fadeIn .4s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(12px);} to{opacity:1;transform:translateY(0);} }
+
+  .result-card {
+    background: rgba(0,0,0,.3);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+  }
+  .thumb-wrap {
+    position: relative;
+    aspect-ratio: 9/12;
+    max-height: 380px;
+    overflow: hidden;
+  }
+  .thumb-wrap img {
+    width: 100%; height: 100%; object-fit: cover;
+    display: block;
+    transition: transform .4s ease;
+  }
+  .thumb-wrap:hover img { transform: scale(1.03); }
+  .thumb-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,.7) 0%, transparent 50%);
+  }
+  .thumb-play {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    width: 64px; height: 64px;
+    background: rgba(255,255,255,.15);
+    backdrop-filter: blur(10px);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+    border: 2px solid rgba(255,255,255,.3);
+  }
+  .result-body { padding: 24px; }
+  .result-meta {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 18px;
+  }
+  .meta-badge {
+    padding: 5px 12px;
+    border-radius: 50px;
+    font-size: .75rem; font-weight: 600;
+    letter-spacing: .05em;
+    background: linear-gradient(135deg, rgba(240,148,51,.15), rgba(188,24,136,.15));
+    border: 1px solid rgba(240,148,51,.2);
+    color: var(--ig2);
+  }
+  .meta-check { color: #4ade80; font-size: .85rem; font-weight: 600; }
+  .btn-dl {
+    width: 100%;
+    padding: 15px;
+    background: linear-gradient(135deg, #16213e, #1a1a28);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    color: var(--text);
+    font-family: 'Syne', sans-serif; font-size: .95rem; font-weight: 700;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    transition: all .25s;
+    text-decoration: none;
+  }
+  .btn-dl:hover {
+    background: linear-gradient(135deg, var(--ig4), var(--ig5));
+    border-color: transparent;
+    transform: translateY(-2px);
+    box-shadow: 0 12px 35px rgba(188,24,136,.35);
+    color: #fff;
+  }
+
+  /* ── ERROR ── */
+  .error-box {
+    background: rgba(220,39,67,.08);
+    border: 1px solid rgba(220,39,67,.2);
+    border-radius: 16px;
+    padding: 24px;
+    text-align: center;
+  }
+  .error-box h3 { color: #ff6b6b; font-family: 'Syne',sans-serif; margin-bottom: 8px; }
+  .error-box p { color: var(--muted); font-size: .9rem; margin-bottom: 16px; }
+  .btn-report {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 22px;
+    background: rgba(220,39,67,.12);
+    border: 1px solid rgba(220,39,67,.25);
+    border-radius: 10px; color: #ff6b6b;
+    text-decoration: none; font-size: .87rem; font-weight: 600;
+    cursor: pointer; transition: all .2s;
+  }
+  .btn-report:hover { background: rgba(220,39,67,.22); transform: translateY(-1px); }
+
+  /* ── HOW TO USE ── */
+  section { position: relative; z-index: 1; }
+  .how-section {
+    padding: 90px 5%;
+    max-width: 1000px; margin: 0 auto;
+  }
+  .section-label {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 16px;
+  }
+  .section-label span {
+    font-size: .72rem; font-weight: 700;
+    letter-spacing: .12em; text-transform: uppercase;
+    color: var(--accent); background: rgba(255,94,142,.08);
+    border: 1px solid rgba(255,94,142,.2);
+    padding: 4px 12px; border-radius: 50px;
+  }
+  .section-label::after {
+    content: ''; flex: 1; height: 1px;
+    background: var(--border);
+  }
+  .how-section h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    font-weight: 800; letter-spacing: -.03em;
+    margin-bottom: 14px;
+  }
+  .how-section > p { color: var(--muted); max-width: 500px; line-height: 1.7; margin-bottom: 50px; }
+
+  .steps-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+  }
+  .step-card {
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px 24px;
+    transition: all .3s;
+    position: relative;
+    overflow: hidden;
+  }
+  .step-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, var(--ig1), var(--ig3), var(--ig5));
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform .3s;
+  }
+  .step-card:hover { transform: translateY(-5px); background: var(--glass2); }
+  .step-card:hover::before { transform: scaleX(1); }
+  .step-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 2.5rem; font-weight: 800;
+    background: linear-gradient(135deg, var(--ig1), var(--ig5));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 14px; display: block;
+  }
+  .step-icon { font-size: 28px; margin-bottom: 12px; display: block; }
+  .step-card h3 { font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
+  .step-card p { color: var(--muted); font-size: .88rem; line-height: 1.6; }
+
+  /* features */
+  .features-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px; margin-top: 50px;
+  }
+  .feat {
+    display: flex; align-items: center; gap: 12px;
+    padding: 16px 18px;
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    font-size: .87rem; font-weight: 500;
+  }
+  .feat .feat-ic { font-size: 18px; }
+
+  /* ── TELEGRAM SECTION ── */
+  .tg-section {
+    padding: 0 5% 90px;
+    max-width: 1000px; margin: 0 auto;
+  }
+  .tg-banner {
+    background: linear-gradient(135deg, rgba(34,158,217,.08) 0%, rgba(0,136,204,.12) 100%);
+    border: 1px solid rgba(34,158,217,.2);
+    border-radius: 28px;
+    padding: 50px 40px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 30px; cursor: pointer;
+    transition: all .3s;
+    text-decoration: none; color: inherit;
+    position: relative; overflow: hidden;
+  }
+  .tg-banner::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(34,158,217,.05), transparent);
+    opacity: 0; transition: opacity .3s;
+  }
+  .tg-banner:hover { transform: translateY(-4px); box-shadow: 0 20px 60px rgba(34,158,217,.15); }
+  .tg-banner:hover::after { opacity: 1; }
+  .tg-left { display: flex; align-items: center; gap: 24px; }
+  .tg-logo-big {
+    width: 80px; height: 80px;
+    background: linear-gradient(135deg, #0088cc, #229ed9);
+    border-radius: 24px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 40px;
+    flex-shrink: 0;
+    box-shadow: 0 10px 30px rgba(34,158,217,.3);
+  }
+  .tg-text-block h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.5rem; font-weight: 800; margin-bottom: 6px;
+  }
+  .tg-text-block p { color: var(--muted); font-size: .92rem; line-height: 1.6; }
+  .tg-arrow {
+    font-size: 2rem; color: var(--tg);
+    transition: transform .3s;
+    flex-shrink: 0;
+  }
+  .tg-banner:hover .tg-arrow { transform: translateX(6px); }
+
+  /* ── FOOTER ── */
+  footer {
+    position: relative; z-index: 1;
+    border-top: 1px solid var(--border);
+    padding: 30px 5%;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 14px;
+  }
+  .footer-logo { display: flex; align-items: center; gap: 10px; }
+  .footer-logo .logo-icon { width: 30px; height: 30px; font-size: 16px; border-radius: 8px; }
+  .footer-copy { color: var(--muted); font-size: .83rem; }
+  .footer-links { display: flex; gap: 20px; }
+  .footer-links a {
+    color: var(--muted); text-decoration: none; font-size: .83rem;
+    transition: color .2s;
+  }
+  .footer-links a:hover { color: var(--text); }
+
+  /* ── REPORT POPUP ── */
+  #report-popup {
+    display: none;
+    position: fixed; inset: 0; z-index: 8888;
+    background: rgba(0,0,0,.7);
+    backdrop-filter: blur(10px);
+    align-items: center; justify-content: center;
+    animation: fadeIn .3s ease;
+  }
+  #report-popup.active { display: flex; }
+  .report-box {
+    background: linear-gradient(135deg, #1a1a28, #12121a);
+    border: 1px solid rgba(220,39,67,.2);
+    border-radius: 22px;
+    padding: 36px;
+    max-width: 340px; width: 90%;
+    text-align: center;
+    box-shadow: 0 30px 80px rgba(0,0,0,.5);
+    animation: popUp .4s cubic-bezier(.34,1.56,.64,1);
+  }
+  .report-box .ri { font-size: 48px; margin-bottom: 16px; }
+  .report-box h3 { font-family: 'Syne',sans-serif; font-size: 1.2rem; font-weight: 800; margin-bottom: 8px; }
+  .report-box p { color: var(--muted); font-size: .88rem; line-height: 1.6; margin-bottom: 24px; }
+  .report-btn-row { display: flex; gap: 10px; }
+  .btn-contact {
+    flex: 1; padding: 12px;
+    background: linear-gradient(135deg, #0088cc, #229ed9);
+    border: none; border-radius: 12px;
+    color: #fff; font-family: 'Syne', sans-serif;
+    font-size: .9rem; font-weight: 700; cursor: pointer;
+    text-decoration: none; display: block; transition: all .2s;
+  }
+  .btn-contact:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(34,158,217,.4); }
+  .btn-cancel {
+    flex: 1; padding: 12px;
+    background: var(--glass2); border: 1px solid var(--border);
+    border-radius: 12px; color: var(--muted);
+    font-size: .88rem; cursor: pointer; transition: all .2s;
+  }
+  .btn-cancel:hover { color: var(--text); }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--dark); }
+  ::-webkit-scrollbar-thumb { background: var(--glass2); border-radius: 3px; }
+
+  @media (max-width: 640px) {
+    .card { padding: 24px 18px; }
+    .tg-banner { flex-direction: column; text-align: center; }
+    .tg-left { flex-direction: column; }
+    footer { flex-direction: column; text-align: center; }
+    .how-section, .tg-section { padding-left: 18px; padding-right: 18px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- BG -->
+<div class="bg-layer"><div class="bg-orb"></div></div>
+<div class="bg-grid"></div>
+
+<!-- ══ TELEGRAM POPUP ══ -->
+<div id="popup-overlay">
+  <div class="popup-box">
+    <div class="tg-icon-big">✈️</div>
+    <h2>Join Our Telegram!</h2>
+    <p>Get updates, new features, and support directly from <strong>@itzzzkartikk0816</strong> on Telegram. Join our community now!</p>
+    <div class="popup-btn-row">
+      <button class="btn-join-popup" onclick="joinTelegram()">Join Now ✈️</button>
+      <button class="btn-ignore-popup" onclick="closePopup()">Maybe Later</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ REPORT POPUP ══ -->
+<div id="report-popup">
+  <div class="report-box">
+    <div class="ri">🚨</div>
+    <h3>Report an Issue</h3>
+    <p>Experiencing a problem? Contact <strong>@itzzzkartikk0816</strong> on Telegram to report this issue and get support.</p>
+    <div class="report-btn-row">
+      <a href="https://t.me/itzzzkartikk0816" target="_blank" class="btn-contact" onclick="closeReport()">Contact Owner ✈️</a>
+      <button class="btn-cancel" onclick="closeReport()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ NAV ══ -->
+<nav>
+  <a href="#" class="nav-logo">
+    <div class="logo-icon">📸</div>
+    <div>
+      <div class="logo-text">InstaFetcher X</div>
+      <div class="nav-tag">by ALPHA WOLF</div>
+    </div>
+  </a>
+  <a href="https://t.me/itzzzkartikk0816" target="_blank" class="nav-tg-btn">
+    ✈️ Telegram
+  </a>
+</nav>
+
+<!-- ══ HERO ══ -->
+<section>
+  <div class="hero">
+    <div class="hero-badge">
+      <span></span> Free Instagram Downloader
+    </div>
+    <h1>Download Instagram<br/><span class="grad-text">Reels & Posts</span></h1>
+    <p>Download any Instagram reel, post or video instantly — no login, no watermark, no limits. Fast, free, and beautifully simple.</p>
+
+    <!-- ── DOWNLOADER CARD ── -->
+    <div class="card">
+      <div class="input-row">
+        <span class="ig-icon">📷</span>
+        <input type="url" id="urlInput" placeholder="Paste Instagram Reel / Post URL here..." autocomplete="off" spellcheck="false"/>
+        <button class="btn-clear" onclick="clearInput()" title="Clear input">✕</button>
+      </div>
+      <button class="btn-download-main" id="fetchBtn" onclick="fetchMedia()">
+        <span id="btn-icon">⬇️</span>
+        <span id="btn-text">Fetch &amp; Download</span>
+      </button>
+
+      <!-- RESULT -->
+      <div id="result"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ HOW TO USE ══ -->
+<section>
+  <div class="how-section">
+    <div class="section-label"><span>How It Works</span></div>
+    <h2>Three Steps to<br/><span class="grad-text">Download Anything</span></h2>
+    <p>InstaFetcher X makes downloading Instagram content ridiculously easy. No extensions, no signups — just paste and go.</p>
+
+    <div class="steps-grid">
+      <div class="step-card">
+        <span class="step-num">01</span>
+        <span class="step-icon">🔗</span>
+        <h3>Copy the URL</h3>
+        <p>Open Instagram, tap Share on any Reel or Post, then tap "Copy Link" to grab the URL.</p>
+      </div>
+      <div class="step-card">
+        <span class="step-num">02</span>
+        <span class="step-icon">📋</span>
+        <h3>Paste the Link</h3>
+        <p>Paste the copied Instagram URL into the input field above. Any format works — reels, posts, IGTV.</p>
+      </div>
+      <div class="step-card">
+        <span class="step-num">03</span>
+        <span class="step-icon">⬇️</span>
+        <h3>Fetch &amp; Download</h3>
+        <p>Hit the button, see the thumbnail preview, then click Download Video to save it to your device.</p>
+      </div>
+      <div class="step-card">
+        <span class="step-num">04</span>
+        <span class="step-icon">🎬</span>
+        <h3>Enjoy!</h3>
+        <p>Your video is saved in full quality — no watermarks, no blurring, ready to share or keep forever.</p>
+      </div>
+    </div>
+
+    <div class="features-grid">
+      <div class="feat"><span class="feat-ic">⚡</span> Lightning Fast</div>
+      <div class="feat"><span class="feat-ic">🔒</span> No Login Required</div>
+      <div class="feat"><span class="feat-ic">💧</span> No Watermark</div>
+      <div class="feat"><span class="feat-ic">📱</span> Mobile Friendly</div>
+      <div class="feat"><span class="feat-ic">🆓</span> Completely Free</div>
+      <div class="feat"><span class="feat-ic">🎥</span> HD Quality</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ TELEGRAM JOIN ══ -->
+<section>
+  <div class="tg-section">
+    <div class="section-label"><span>Community</span></div>
+    <a href="https://t.me/itzzzkartikk0816" target="_blank" class="tg-banner">
+      <div class="tg-left">
+        <div class="tg-logo-big">✈️</div>
+        <div class="tg-text-block">
+          <h3>Join Us on Telegram</h3>
+          <p>Get instant notifications about new features, updates, tips and tricks. Tap to join <strong>@itzzzkartikk0816</strong> — our growing community is waiting for you!</p>
+        </div>
+      </div>
+      <div class="tg-arrow">→</div>
+    </a>
+  </div>
+</section>
+
+<!-- ══ FOOTER ══ -->
+<footer>
+  <div class="footer-logo">
+    <div class="logo-icon">📸</div>
+    <div>
+      <div class="logo-text" style="font-size:.95rem;">InstaFetcher X</div>
+    </div>
+  </div>
+  <div class="footer-copy">© ALPHA WOLF — All Rights Reserved 2026</div>
+  <div class="footer-links">
+    <a href="https://t.me/itzzzkartikk0816" target="_blank">Telegram</a>
+    <a href="https://t.me/itzzzkartikk0816" target="_blank">Support</a>
+    <a href="#" onclick="openReport(); return false;">Report</a>
+  </div>
+</footer>
+
+<script>
+  // ── Telegram popup on load ──
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      document.getElementById('popup-overlay').style.display = 'flex';
+    }, 800);
+  });
+
+  function joinTelegram() {
+    window.open('https://t.me/itzzzkartikk0816', '_blank');
+    closePopup();
+  }
+  function closePopup() {
+    const el = document.getElementById('popup-overlay');
+    el.style.animation = 'none';
+    el.style.opacity = '0';
+    el.style.transition = 'opacity .3s ease';
+    setTimeout(() => el.style.display = 'none', 300);
+  }
+
+  // ── Report popup ──
+  function openReport() {
+    document.getElementById('report-popup').classList.add('active');
+  }
+  function closeReport() {
+    document.getElementById('report-popup').classList.remove('active');
+  }
+  document.getElementById('report-popup').addEventListener('click', function(e) {
+    if (e.target === this) closeReport();
+  });
+
+  // ── Clear input ──
+  function clearInput() {
+    document.getElementById('urlInput').value = '';
+    document.getElementById('result').innerHTML = '';
+    document.getElementById('urlInput').focus();
+  }
+
+  // ── Enter key support ──
+  document.getElementById('urlInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') fetchMedia();
+  });
+
+  // ── Extract all URLs from object ──
+  function extractURLs(obj, found = {}) {
+    if (!obj || typeof obj !== 'object') return found;
+    for (const key of Object.keys(obj)) {
+      const val = obj[key];
+      if (typeof val === 'string' && (val.startsWith('http://') || val.startsWith('https://'))) {
+        const k = key.toLowerCase();
+        if ((k.includes('video') || k.includes('mp4') || k.includes('reel') || val.includes('.mp4')) && !found.video) {
+          found.video = val;
+        }
+        if ((k.includes('thumb') || k.includes('image') || k.includes('jpg') || k.includes('jpeg') || k.includes('png') || val.includes('.jpg') || val.includes('.jpeg')) && !found.thumbnail) {
+          found.thumbnail = val;
+        }
+        if (!found.any) found.any = val;
+      } else if (typeof val === 'object') {
+        extractURLs(val, found);
+      }
+    }
+    return found;
+  }
+
+  // ── Main fetch ──
+  async function fetchMedia() {
+    const url = document.getElementById('urlInput').value.trim();
+    const result = document.getElementById('result');
+    const btn = document.getElementById('fetchBtn');
+    const btnIcon = document.getElementById('btn-icon');
+    const btnText = document.getElementById('btn-text');
+
+    if (!url) {
+      showError('Please paste an Instagram URL first.', false);
+      return;
+    }
+    if (!url.includes('instagram.com')) {
+      showError('That doesn\'t look like an Instagram URL. Please paste a valid Instagram link.', false);
+      return;
+    }
+
+    // Loading state
+    btn.disabled = true;
+    btnIcon.outerHTML = '<span id="btn-icon"><div class="spinner"></div></span>';
+    btnText.textContent = 'Fetching...';
+    result.innerHTML = '';
+
+    try {
+      const apiURL = `https://instadl.rydenxgod.workers.dev/?url=${encodeURIComponent(url)}`;
+      const res = await fetch(apiURL);
+      const data = await res.json();
+
+      // Try to find video & thumbnail
+      const urls = extractURLs(data);
+
+      const videoUrl = data.video || data.videoUrl || data.url || data.download || data.mp4 || urls.video || null;
+      const thumbUrl = data.thumbnail || data.thumbnailUrl || data.image || data.cover || data.poster || urls.thumbnail || null;
+      const status = (data.status || '').toLowerCase();
+
+      if (status === 'error' || (status && status !== 'success' && !videoUrl)) {
+        showError(data.message || data.error || 'Download failed. The link may be private or unsupported.', true);
+        return;
+      }
+
+      if (!videoUrl) {
+        showError('Could not extract a download link from this post. It may be private, a story, or unsupported content.', true);
+        return;
+      }
+
+      showSuccess(videoUrl, thumbUrl);
+
+    } catch (err) {
+      showError('Network error — could not reach the server. Please check your connection and try again.', true);
+    } finally {
+      btn.disabled = false;
+      document.getElementById('btn-icon').outerHTML = '<span id="btn-icon">⬇️</span>';
+      document.getElementById('btn-text').textContent = 'Fetch & Download';
+    }
+  }
+
+  function showSuccess(videoUrl, thumbUrl) {
+    const result = document.getElementById('result');
+    result.innerHTML = `
+      <div class="result-card">
+        ${thumbUrl ? `
+          <div class="thumb-wrap">
+            <img src="${escHtml(thumbUrl)}" alt="Video thumbnail" onerror="this.parentElement.style.display='none'"/>
+            <div class="thumb-overlay"></div>
+            <div class="thumb-play">▶️</div>
+          </div>
+        ` : ''}
+        <div class="result-body">
+          <div class="result-meta">
+            <span class="meta-badge">✅ Ready to Download</span>
+            <span class="meta-check">HD Quality</span>
+          </div>
+          <button class="btn-dl" onclick="startDownload('${escHtml(videoUrl)}')">
+            ⬇️ Download Video
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  function showError(msg, showReport) {
+    const result = document.getElementById('result');
+    result.innerHTML = `
+      <div class="error-box">
+        <h3>⚠️ Download Failed</h3>
+        <p>${escHtml(msg)}</p>
+        ${showReport ? `<button class="btn-report" onclick="openReport()">🚨 Report this Issue</button>` : ''}
+      </div>
+    `;
+  }
+
+  function startDownload(url) {
+    // Create hidden anchor and trigger download
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'instagram_video_' + Date.now() + '.mp4';
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+</script>
+</body>
+</html>
