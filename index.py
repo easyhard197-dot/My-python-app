@@ -31,21 +31,22 @@ def notify_usage(ig_url: str, status: str):
     time_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
 
     text = (
-        f"📥 *InstaFetcher X — new request*\n"
+        f"InstaFetcher X — new request\n"
         f"Status: {status}\n"
-        f"IP: `{ip}`\n"
+        f"IP: {ip}\n"
         f"Time: {time_str}\n"
         f"Link: {ig_url}"
     )
 
     try:
-        requests.post(
+        resp = requests.post(
             f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
-            json={"chat_id": TELEGRAM_CHAT_ID, "text": text, "parse_mode": "Markdown"},
-            timeout=3,
+            json={"chat_id": TELEGRAM_CHAT_ID, "text": text},
+            timeout=5,
         )
-    except Exception:
-        pass  # never let tracking break the actual download
+        print("Telegram response:", resp.status_code, resp.text)
+    except Exception as e:
+        print("Telegram notify failed:", e)
 
 
 @app.after_request
